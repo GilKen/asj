@@ -18,13 +18,13 @@ sudo apt install -y sshpass isc-dhcp-server iptables iptables-persistent
 
 # Konfigurasi DHCP
 cat <<EOF | sudo tee /etc/dhcp/dhcpd.conf
-subnet 192.168.36.0 netmask 255.255.255.0 {
-    range 192.168.36.10 192.168.36.100;
-    option routers 192.168.36.1;
+subnet 192.168.13.0 netmask 255.255.255.0 {
+    range 192.168.13.10 192.168.13.100;
+    option routers 192.168.13.1;
     option domain-name-servers 8.8.8.8, 8.8.4.4;
     option subnet-mask 255.255.255.0;
-    option routers 192.168.36.1;
-    option broadcast-address 192.168.36.255;
+    option routers 192.168.13.1;
+    option broadcast-address 192.168.13.255;
 
 }
 EOF
@@ -45,7 +45,7 @@ network:
     eth1.10:
       id: 10
       link: eth1
-      addresses: [192.168.36.1/24]
+      addresses: [192.168.13.1/24]
 EOF
 
 # Terapkan Konfigurasi Netplan dan Aktifkan Interface

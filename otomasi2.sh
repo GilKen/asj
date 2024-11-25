@@ -92,16 +92,16 @@ MKT_PASSWORD="admin_password"
 if [ -z "$MKT_PASSWORD" ]; then
     ssh -o StrictHostKeyChecking=no admin@192.168.200.1 <<EOF
 interface vlan add name=vlan10 vlan-id=10 interface=ether1
-ip address add address=192.168.36.1/24 interface=vlan10
+ip address add address=192.168.13.1/24 interface=vlan10
 ip address add address=192.168.200.1/24 interface=ether2
-ip route add dst-address=192.168.36.0/24 gateway=192.168.36.1
+ip route add dst-address=192.168.13.0/24 gateway=192.168.36.1
 EOF
 else
     sshpass -p "$MKT_PASSWORD" ssh -o StrictHostKeyChecking=no admin@192.168.200.1 <<EOF
 interface vlan add name=vlan10 vlan-id=10 interface=ether1
-ip address add address=192.168.36.1/24 interface=vlan10
+ip address add address=192.168.13.1/24 interface=vlan10
 ip address add address=192.168.200.1/24 interface=ether2
-ip route add dst-address=192.168.36.0/24 gateway=192.168.36.1
+ip route add dst-address=192.168.13.0/24 gateway=192.168.13.1
 EOF
 fi
 

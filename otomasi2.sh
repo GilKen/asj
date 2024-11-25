@@ -17,22 +17,23 @@ sudo apt update
 sudo apt install -y sshpass isc-dhcp-server iptables iptables-persistent
 
 # Konfigurasi DHCP
+echo "Mengonfigurasi DHCP..."
 cat <<EOF | sudo tee /etc/dhcp/dhcpd.conf
 subnet 192.168.13.0 netmask 255.255.255.0 {
     range 192.168.13.10 192.168.13.100;
     option routers 192.168.13.1;
     option domain-name-servers 8.8.8.8, 8.8.4.4;
     option subnet-mask 255.255.255.0;
-    option routers 192.168.13.1;
     option broadcast-address 192.168.13.255;
-
 }
 EOF
 
 # Konfigurasi Interfaces DHCP
+echo "Mengonfigurasi interface DHCP..."
 sudo sed -i 's/^INTERFACESv4=.*/INTERFACESv4="eth1.10"/' /etc/default/isc-dhcp-server
 
-# Konfigrasi IP Statis Untuk Internal Network menggunakan Netplan
+# Konfigurasi IP Statis Untuk Internal Network menggunakan Netplan
+echo "Mengonfigurasi IP Statis untuk Internal Network menggunakan Netplan..."
 cat <<EOF | sudo tee /etc/netplan/01-netcfg.yaml
 network:
   version: 2
@@ -57,22 +58,40 @@ sudo netplan apply
 echo "Merestart DHCP server..."
 sudo systemctl restart isc-dhcp-server
 
-# Mengaktifkan IP Forwarding Dan Mengonfigurasi IPTables
-echo "Mengonfigurasi IP Forwarding dan IPTables..."
+# Mengaktifkan IP Forwarding
+echo "Mengaktifkan IP Forwarding..."
 sudo sysctl -w net.ipv4.ip_forward=1
 echo "net.ipv4.ip_forward=1" | sudo tee -a /etc/sysctl.conf
+
+# Konfigurasi IPTables untuk NAT
+echo "Mengonfigurasi IPTables untuk NAT..."
 sudo iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE
+sudo iptables -A FORWARD -i eth1.10 -o eth0 -j ACCEPT
+sudo iptables -A FORWARD -i eth0 -o eth1.10 -m state --state ESTABLISHED,RELATED -j ACCEPT
 
 # Menyimpan Aturan IPTables
 sudo netfilter-persistent save
 
-# Konfigurasi Routing untuk jaringan MikroTik
-echo "Menambahkan konfigurasi routing..."
-sudo ip route add 192.168.200.0/24 via 192.168.200.1 || echo "Gagal menambahkan route. Pastikan jaringan MikroTik aktif."
+# Konfigurasi IP Statis untuk MikroTik
+echo "Mengatur IP Statis untuk MikroTik..."
+sudo ip addr add 192.168.200.2/24 dev eth0  # Ganti dengan interface yang sesuai
+sudo ip link set dev eth0 up
 
-# 4. Konfigurasi Cisco Switch melalui SSH dengan username dan password root
-echo "Mengonfigurasi Cisco Switch..."
-sshpass -p "root" ssh -o StrictHostKeyChecking=no root@192.168.36.35 <<EOF
+# Konfigurasi IP Statis untuk Cisco
+echo "Mengatur IP Statis untuk Cisco..."
+sudo ip addr add 192.168.13.2/24 dev eth0  # Ganti dengan interface yang sesuai
+sudo ip link set dev eth0 up
+
+# Menunggu beberapa detik untuk konfigurasi IP
+sleep 5
+
+# Informasi login
+username="admin"
+password="admin_password"
+
+# Konfigurasi Cisco
+echo "Mengonfigurasi Cisco..."
+sshpass -p $password ssh -o StrictHostKeyChecking=no $username@192.168.13.1 << EOF
 enable
 configure terminal
 vlan 10
@@ -86,23 +105,5 @@ end
 write memory
 EOF
 
-# 5. Konfigurasi MikroTik melalui SSH tanpa prompt
+# Konfigurasi MikroTik
 echo "Mengonfigurasi MikroTik..."
-MKT_PASSWORD="admin_password"
-if [ -z "$MKT_PASSWORD" ]; then
-    ssh -o StrictHostKeyChecking=no admin@192.168.200.1 <<EOF
-interface vlan add name=vlan10 vlan-id=10 interface=ether1
-ip address add address=192.168.13.1/24 interface=vlan10
-ip address add address=192.168.200.1/24 interface=ether2
-ip route add dst-address=192.168.13.0/24 gateway=192.168.36.1
-EOF
-else
-    sshpass -p "$MKT_PASSWORD" ssh -o StrictHostKeyChecking=no admin@192.168.200.1 <<EOF
-interface vlan add name=vlan10 vlan-id=10 interface=ether1
-ip address add address=192.168.13.1/24 interface=vlan10
-ip address add address=192.168.200.1/24 interface=ether2
-ip route add dst-address=192.168.13.0/24 gateway=192.168.13.1
-EOF
-fi
-
-echo "Otomasi konfigurasi selesai."
